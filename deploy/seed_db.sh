@@ -151,6 +151,29 @@ if [ ! -d node_modules ]; then
     npm install --silent
 fi
 
+# Patch the app .env with the local Supabase keys so that dotenvx in seed scripts
+# uses the correct JWT tokens, not stale cloud keys from developer machines.
+log "Syncing app .env with local Supabase credentials..."
+ANON_KEY=$(grep "^ANON_KEY=" "$SUPABASE_DOCKER_DIR/.env" | cut -d= -f2)
+DB_PASS=$(grep "^POSTGRES_PASSWORD=" "$SUPABASE_DOCKER_DIR/.env" | cut -d= -f2)
+# Write/overwrite the key lines in the app .env
+if grep -q "^SUPABASE_SERVICE_ROLE_KEY=" .env 2>/dev/null; then
+    sed -i "s|^SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY|" .env
+else
+    echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY" >> .env
+fi
+if grep -q "^DATABASE_URL=" .env 2>/dev/null; then
+    sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:${DB_PASS}@127.0.0.1:5432/postgres|" .env
+else
+    echo "DATABASE_URL=postgresql://postgres:${DB_PASS}@127.0.0.1:5432/postgres" >> .env
+fi
+if grep -q "^PUBLIC_SUPABASE_URL=" .env 2>/dev/null; then
+    sed -i "s|^PUBLIC_SUPABASE_URL=.*|PUBLIC_SUPABASE_URL=http://127.0.0.1:8000|" .env
+else
+    echo "PUBLIC_SUPABASE_URL=http://127.0.0.1:8000" >> .env
+fi
+ok "App .env synced with local Supabase credentials."
+
 log "Seeding verses..."
 npx tsx scripts/seed.ts
 
