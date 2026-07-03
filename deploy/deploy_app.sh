@@ -36,6 +36,13 @@ elif [ -f "$APP_DIR/.env" ] && [ ! -L "$APP_DIR" ]; then
     ln -s "$SHARED_ENV_FILE" .env
 fi
 
+# Link lanes.sqlite if it exists in base dir
+if [ -f "$BASE_DIR/lanes.sqlite" ]; then
+    echo "Linking lanes.sqlite..."
+    mkdir -p data
+    ln -s "$BASE_DIR/lanes.sqlite" data/lanes.sqlite
+fi
+
 if [ -f .env ]; then
     echo "Loading .env variables into environment..."
     set -a
