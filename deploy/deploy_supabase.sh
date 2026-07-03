@@ -1,7 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "Deploying Supabase Docker Stack..."
+# DOMAIN is passed by release.sh (e.g. DOMAIN=inquran.com or uat.inquran.com)
+DOMAIN="${DOMAIN:-uat.inquran.com}"
+SITE_URL="https://${DOMAIN}"
+
+echo "Deploying Supabase Docker Stack for ${DOMAIN}..."
 
 INSTALL_DIR="/home/nislam/supabase"
 
@@ -45,10 +49,14 @@ EOF
     sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${JWT_SECRET}|" .env
     sed -i "s|^ANON_KEY=.*|ANON_KEY=${ANON_KEY}|" .env
     sed -i "s|^SERVICE_ROLE_KEY=.*|SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}|" .env
-    sed -i "s|SITE_URL=http://localhost:3000|SITE_URL=https://uat.inquran.com|" .env
+    sed -i "s|^SITE_URL=.*|SITE_URL=${SITE_URL}|" .env
 
     echo "Generated secure keys."
 fi
+
+# Always sync SITE_URL (in case domain changed or .env was pre-existing)
+sed -i "s|^SITE_URL=.*|SITE_URL=${SITE_URL}|" .env
+echo "SITE_URL set to: ${SITE_URL}"
 
 echo "Pulling Docker images..."
 docker compose pull
