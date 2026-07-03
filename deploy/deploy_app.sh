@@ -127,6 +127,68 @@ else
 fi
 pm2 save
 
+# ---------------------------------------------------------------------------
+# Auto-configure Nginx if no config exists for this domain
+# ---------------------------------------------------------------------------
+NGINX_CONF="/etc/nginx/conf.d/${DOMAIN:-inquran.com}.conf"
+if [ -n "${DOMAIN:-}" ] && [ ! -f "$NGINX_CONF" ]; then
+    echo "No Nginx config found for $DOMAIN — creating one..."
+    sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+    sudo tee "$NGINX_CONF" > /dev/null << NGINXEOF
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name ${DOMAIN} www.${DOMAIN};
+
+    gzip on; gzip_vary on; gzip_proxied any; gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml application/json application/javascript;
+
+    large_client_header_buffers 4 64k;
+    client_header_buffer_size 64k;
+    proxy_buffer_size 128k;
+    proxy_buffers 4 256k;
+    proxy_busy_buffers_size 256k;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        proxy_pass http://127.0.0.1:4321;
+        expires 1y; access_log off;
+        add_header Cache-Control "public";
+    }
+
+    location ^~ /supabase/ {
+        rewrite ^/supabase/(.*) /\$1 break;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$http_x_forwarded_proto;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:4321;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$http_x_forwarded_proto;
+    }
+
+    if (\$http_x_forwarded_proto = "http") {
+        return 301 https://\$host\$request_uri;
+    }
+}
+NGINXEOF
+    sudo nginx -t && sudo systemctl reload nginx && echo "Nginx configured and reloaded for $DOMAIN"
+fi
+
 echo "Pruning old releases (keeping 5)..."
 cd "$RELEASES_DIR"
 # List by modification time (newest first), skip the first 5, and delete the rest
