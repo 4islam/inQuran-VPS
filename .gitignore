@@ -1,0 +1,19 @@
+# Secrets — never commit these
+*.env
+!deploy/secrets.env.template
+!deploy/supabase.env
+.env*
+~/.inquran-secrets
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# SSH private keys
+*.pem
+id_rsa*
+id_ed25519
+!id_ed25519.pub
