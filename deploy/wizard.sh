@@ -42,15 +42,17 @@ if [[ "$seed_choice" =~ ^[Yy]$ ]]; then
     RESEED_FLAG="--full-reseed"
 fi
 
-# 3. DNS Updates
-echo ""
-echo "Do you want to skip updating Cloudflare DNS?"
-echo "(Useful for testing servers directly via IP before switching live traffic)"
-read -p "Skip DNS? [y/N]: " dns_choice
-
+# 3. DNS Updates (production only)
 DNS_FLAG=""
-if [[ "$dns_choice" =~ ^[Yy]$ ]]; then
-    DNS_FLAG="--no-dns"
+if [ "$TARGET" = "production" ]; then
+    echo ""
+    echo "Do you want to skip updating Cloudflare DNS?"
+    echo "(Useful for testing a new server directly via IP before switching live traffic)"
+    read -p "Skip DNS? [y/N]: " dns_choice
+
+    if [[ "$dns_choice" =~ ^[Yy]$ ]]; then
+        DNS_FLAG="--no-dns"
+    fi
 fi
 
 # Build command
