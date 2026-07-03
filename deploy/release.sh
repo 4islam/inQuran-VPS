@@ -89,7 +89,8 @@ upload_scripts() {
 deploy_app() {
     local HOST="$1"
     local ENV_LABEL="$2"
-    section "[${ENV_LABEL^^}] Deploying App (Blue/Green)"
+    local ENV_UPPER; ENV_UPPER=$(echo "$ENV_LABEL" | tr '[:lower:]' '[:upper:]')
+    section "[$ENV_UPPER] Deploying App (Blue/Green)"
     upload_scripts "$HOST"
     ssh -A "$SSH_USER@$HOST" "bash ~/deploy/deploy_app.sh"
     ok "App deployed on $HOST."
@@ -101,7 +102,8 @@ deploy_app() {
 seed_db() {
     local HOST="$1"
     local ENV_LABEL="$2"
-    section "[${ENV_LABEL^^}] Seeding Database (FULL_RESEED=$FULL_RESEED)"
+    local ENV_UPPER; ENV_UPPER=$(echo "$ENV_LABEL" | tr '[:lower:]' '[:upper:]')
+    section "[$ENV_UPPER] Seeding Database (FULL_RESEED=$FULL_RESEED)"
     ssh "$SSH_USER@$HOST" "FULL_RESEED=$FULL_RESEED bash ~/deploy/seed_db.sh"
     ok "DB seeded on $HOST."
 }
@@ -112,7 +114,8 @@ seed_db() {
 smoke_test() {
     local HOST="$1"
     local ENV_LABEL="$2"
-    section "[${ENV_LABEL^^}] Running Smoke Tests"
+    local ENV_UPPER; ENV_UPPER=$(echo "$ENV_LABEL" | tr '[:lower:]' '[:upper:]')
+    section "[$ENV_UPPER] Running Smoke Tests"
     if ! ssh "$SSH_USER@$HOST" "bash ~/deploy/smoke_test.sh"; then
         fail "Smoke tests FAILED on $HOST ($ENV_LABEL)!"
         return 1
@@ -180,10 +183,11 @@ rollback_prod() {
 # ---------------------------------------------------------------------------
 # MAIN FLOW
 # ---------------------------------------------------------------------------
+TARGET_UPPER=$(echo "$TARGET" | tr '[:lower:]' '[:upper:]')
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
-echo "║        inQuran Release Pipeline — $TIMESTAMP        ║"
-echo "║        Target: ${TARGET^^}                                    ║"
+echo "║   inQuran Release Pipeline — $TIMESTAMP   ║"
+echo "║   Target: $TARGET_UPPER                                      ║"
 echo "╚══════════════════════════════════════════════════════╝"
 
 # ── STAGING PHASE ────────────────────────────────────────────
@@ -240,6 +244,7 @@ trap - ERR
 
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
-echo "║  ✅  RELEASE COMPLETE — $TIMESTAMP              ║"
+echo "║  ✅  RELEASE COMPLETE                                ║"
+echo "║     $TIMESTAMP                            ║"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
