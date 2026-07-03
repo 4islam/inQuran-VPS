@@ -90,6 +90,7 @@ module.exports = {
     apps: [{
         name: '$APP_NAME',
         script: './dist/server/entry.mjs',
+        cwd: '$APP_DIR',
         env: {
             PORT: 4321,
             HOST: '127.0.0.1'
