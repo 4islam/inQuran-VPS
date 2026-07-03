@@ -36,12 +36,47 @@ elif [ -f "$APP_DIR/.env" ] && [ ! -L "$APP_DIR" ]; then
     ln -s "$SHARED_ENV_FILE" .env
 fi
 
-# Link lanes.sqlite if it exists in base dir
-if [ -f "$BASE_DIR/lanes.sqlite" ]; then
+# ---------------------------------------------------------------------------
+# Ensure lanes.sqlite is available in the shared base dir.
+# The file is excluded from git (~70MB), so we download it on demand.
+# Validation uses Linux stat with a macOS fallback so the script can also
+# be run locally for testing.
+# ---------------------------------------------------------------------------
+LANES_URL="https://raw.githubusercontent.com/naveedulislam/lan/master/lexicon.sqlite"
+LANES_SHARED="$BASE_DIR/lanes.sqlite"
+LANES_MIN_SIZE=60000000  # 60MB threshold — a valid file is ~70MB
+
+get_file_size() {
+    stat -c%s "$1" 2>/dev/null || stat -f%z "$1" 2>/dev/null || echo 0
+}
+
+LANES_SIZE=0
+if [ -f "$LANES_SHARED" ]; then
+    LANES_SIZE=$(get_file_size "$LANES_SHARED")
+fi
+
+if [ "$LANES_SIZE" -lt "$LANES_MIN_SIZE" ]; then
+    echo "lanes.sqlite missing or too small ($LANES_SIZE bytes) — downloading..."
+    curl -L --fail -o "$LANES_SHARED" "$LANES_URL"
+    LANES_SIZE=$(get_file_size "$LANES_SHARED")
+    if [ "$LANES_SIZE" -lt "$LANES_MIN_SIZE" ]; then
+        echo "⚠️  Warning: lanes.sqlite download may be incomplete (size: $LANES_SIZE bytes)."
+        echo "   Lane's Lexicon features will be degraded but the app will continue."
+        rm -f "$LANES_SHARED"  # Remove bad file so next deploy retries
+    else
+        echo "✅ lanes.sqlite downloaded successfully ($LANES_SIZE bytes)."
+    fi
+else
+    echo "lanes.sqlite already valid ($LANES_SIZE bytes). Skipping download."
+fi
+
+# Link lanes.sqlite into the release data dir if the shared copy is present
+if [ -f "$LANES_SHARED" ]; then
     echo "Linking lanes.sqlite..."
     mkdir -p data
-    ln -s "$BASE_DIR/lanes.sqlite" data/lanes.sqlite
+    ln -s "$LANES_SHARED" data/lanes.sqlite
 fi
+
 
 if [ -f .env ]; then
     echo "Loading .env variables into environment..."
