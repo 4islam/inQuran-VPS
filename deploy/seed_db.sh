@@ -156,22 +156,24 @@ fi
 log "Syncing app .env with local Supabase credentials..."
 ANON_KEY=$(grep "^ANON_KEY=" "$SUPABASE_DOCKER_DIR/.env" | cut -d= -f2)
 DB_PASS=$(grep "^POSTGRES_PASSWORD=" "$SUPABASE_DOCKER_DIR/.env" | cut -d= -f2)
-# Write/overwrite the key lines in the app .env
-if grep -q "^SUPABASE_SERVICE_ROLE_KEY=" .env 2>/dev/null; then
-    sed -i "s|^SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY|" .env
-else
-    echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY" >> .env
-fi
-if grep -q "^DATABASE_URL=" .env 2>/dev/null; then
-    sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:${DB_PASS}@127.0.0.1:5432/postgres|" .env
-else
-    echo "DATABASE_URL=postgresql://postgres:${DB_PASS}@127.0.0.1:5432/postgres" >> .env
-fi
-if grep -q "^PUBLIC_SUPABASE_URL=" .env 2>/dev/null; then
-    sed -i "s|^PUBLIC_SUPABASE_URL=.*|PUBLIC_SUPABASE_URL=http://127.0.0.1:8000|" .env
-else
-    echo "PUBLIC_SUPABASE_URL=http://127.0.0.1:8000" >> .env
-fi
+
+# Helper to upsert a key=value in the app .env
+patch_env() {
+    local KEY="$1" VAL="$2"
+    if grep -q "^${KEY}=" .env 2>/dev/null; then
+        sed -i "s|^${KEY}=.*|${KEY}=${VAL}|" .env
+    else
+        echo "${KEY}=${VAL}" >> .env
+    fi
+}
+
+patch_env "SUPABASE_SERVICE_ROLE_KEY" "$SERVICE_KEY"
+patch_env "DATABASE_URL"              "postgresql://postgres:${DB_PASS}@127.0.0.1:5432/postgres"
+patch_env "PUBLIC_SUPABASE_URL"       "http://127.0.0.1:8000"
+# CRITICAL: patch the public anon key used by the frontend/client.
+# The .env checked in from dev machines may contain a stale cloud-project key
+# (e.g. sb_publishable_...) which the local Supabase Kong will reject with 401.
+patch_env "PUBLIC_SUPABASE_ANON_KEY" "$ANON_KEY"
 ok "App .env synced with local Supabase credentials."
 
 log "Seeding verses..."
