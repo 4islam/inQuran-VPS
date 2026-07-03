@@ -76,10 +76,12 @@ fi
 
 # Build without tests for faster, safer deployments on staging/prod
 echo "Running build..."
-PUBLIC_GA_KEY="$GA_KEY_VAL" \
-    PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
-    ${ANON_KEY:+PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY"} \
-    ASTRO_ADAPTER=node npx astro build
+export PUBLIC_GA_KEY="$GA_KEY_VAL"
+export PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+if [ -n "$ANON_KEY" ]; then
+    export PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY"
+fi
+ASTRO_ADAPTER=node npx astro build
 
 # PM2 logic
 echo "Copying PM2 configuration..."
