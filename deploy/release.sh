@@ -21,19 +21,23 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 TARGET="${1:-}"
 FULL_RESEED="false"
+SKIP_DNS="false"
 for arg in "$@"; do
     if [ "$arg" = "--full-reseed" ]; then
         FULL_RESEED="true"
+    elif [ "$arg" = "--no-dns" ]; then
+        SKIP_DNS="true"
     fi
 done
 
 if [ -z "$TARGET" ] || { [ "$TARGET" != "staging" ] && [ "$TARGET" != "production" ]; }; then
-    echo "Usage: $0 <staging|production> [--full-reseed]"
+    echo "Usage: $0 <staging|production> [--full-reseed] [--no-dns]"
     echo ""
     echo "  staging     — Deploy app + seed DB on staging only"
     echo "  production  — Full pipeline: staging first, then production, then Cloudflare"
     echo ""
     echo "  --full-reseed  — Wipe DB and reseed all data (use for schema resets)"
+    echo "  --no-dns       — Skip Cloudflare DNS switch (useful for testing production VPS)"
     exit 1
 fi
 
@@ -228,19 +232,24 @@ if ! smoke_test "$PROD_HOST" "production"; then
     rollback_prod
 fi
 
-# All good — flip DNS
-switch_cloudflare "$PROD_HOST" "PRODUCTION"
-
-# Final public health check (via Cloudflare, real URL)
-section "Final Public Health Check"
-log "Waiting 10s for DNS to propagate through Cloudflare..."
-sleep 10
-
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://$PROD_DOMAIN/" || echo "000")
-if [ "$HTTP_CODE" = "200" ]; then
-    ok "https://$PROD_DOMAIN/ returned HTTP 200. Production is LIVE! 🎉"
+if [ "$SKIP_DNS" = "true" ]; then
+    section "Skipping Cloudflare DNS Switch (--no-dns)"
+    echo "  DNS was not switched. Production is deployed on the VPS but not public."
 else
-    fail "https://$PROD_DOMAIN/ returned HTTP $HTTP_CODE. DNS may still be propagating — check manually."
+    # All good — flip DNS
+    switch_cloudflare "$PROD_HOST" "PRODUCTION"
+
+    # Final public health check (via Cloudflare, real URL)
+    section "Final Public Health Check"
+    log "Waiting 10s for DNS to propagate through Cloudflare..."
+    sleep 10
+
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://$PROD_DOMAIN/" || echo "000")
+    if [ "$HTTP_CODE" = "200" ]; then
+        ok "https://$PROD_DOMAIN/ returned HTTP 200. Production is LIVE! 🎉"
+    else
+        fail "https://$PROD_DOMAIN/ returned HTTP $HTTP_CODE. DNS may still be propagating — check manually."
+    fi
 fi
 
 # Disable the ERR trap since we're done
