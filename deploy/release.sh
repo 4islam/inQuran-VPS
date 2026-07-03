@@ -56,6 +56,9 @@ source "$SECRETS_FILE"
 : "${PROD_DOMAIN:?Missing PROD_DOMAIN in ~/.inquran-secrets}"
 : "${SSH_USER:?Missing SSH_USER in ~/.inquran-secrets}"
 
+# Derive staging domain from prod domain (uat. prefix)
+STAGING_DOMAIN="uat.${PROD_DOMAIN}"
+
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 PREV_PROD_IP=""
@@ -89,10 +92,11 @@ upload_scripts() {
 deploy_app() {
     local HOST="$1"
     local ENV_LABEL="$2"
+    local DOMAIN_FOR_ENV="$3"
     local ENV_UPPER; ENV_UPPER=$(echo "$ENV_LABEL" | tr '[:lower:]' '[:upper:]')
     section "[$ENV_UPPER] Deploying App (Blue/Green)"
     upload_scripts "$HOST"
-    ssh -A "$SSH_USER@$HOST" "bash ~/deploy/deploy_app.sh"
+    ssh -A "$SSH_USER@$HOST" "DOMAIN=$DOMAIN_FOR_ENV bash ~/deploy/deploy_app.sh"
     ok "App deployed on $HOST."
 }
 
@@ -191,7 +195,7 @@ echo "║   Target: $TARGET_UPPER                                      ║"
 echo "╚══════════════════════════════════════════════════════╝"
 
 # ── STAGING PHASE ────────────────────────────────────────────
-deploy_app  "$STAGING_HOST" "staging"
+deploy_app  "$STAGING_HOST" "staging" "$STAGING_DOMAIN"
 seed_db     "$STAGING_HOST" "staging"
 if ! smoke_test "$STAGING_HOST" "staging"; then
     fail "Staging smoke tests failed. Aborting — production was NOT touched."
@@ -217,7 +221,7 @@ log "Current production Cloudflare IP: ${PREV_PROD_IP:-unknown}"
 # Trap errors to trigger rollback
 trap rollback_prod ERR
 
-deploy_app  "$PROD_HOST" "production"
+deploy_app  "$PROD_HOST" "production" "$PROD_DOMAIN"
 seed_db     "$PROD_HOST" "production"
 
 if ! smoke_test "$PROD_HOST" "production"; then
