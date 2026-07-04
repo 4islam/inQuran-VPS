@@ -130,6 +130,24 @@ if [ -n "$ANON_KEY" ]; then
 fi
 ASTRO_ADAPTER=node npx astro build
 
+# ---------------------------------------------------------------------------
+# Post-build SSR patch: rewrite the public Supabase URL in server chunks to
+# point directly at the local Kong gateway (http://127.0.0.1:8000).
+#
+# Why: The app's supabase.ts uses PUBLIC_SUPABASE_URL (baked at build time as
+# https://DOMAIN/supabase). When SSR routes use this client, requests flow
+# through Cloudflare, which can serve stale cached responses (e.g., empty []
+# for distinct_topics before permissions were applied). By pointing SSR
+# directly at Kong, we bypass Cloudflare entirely for server-side fetches
+# while the browser-side client still uses the public HTTPS URL correctly.
+# ---------------------------------------------------------------------------
+if [ -n "${SUPABASE_URL:-}" ] && [ -d "dist/server" ]; then
+    echo "Patching SSR server chunks: replacing '$SUPABASE_URL' → 'http://127.0.0.1:8000'..."
+    find dist/server -name '*.mjs' \
+        -exec sed -i "s|${SUPABASE_URL}|http://127.0.0.1:8000|g" {} +
+    echo "✅ SSR URL patch applied."
+fi
+
 # PM2 logic
 echo "Copying PM2 configuration..."
 cp "$SCRIPT_DIR/ecosystem.config.cjs" "$RELEASE_DIR/" 2>/dev/null || cat > "$RELEASE_DIR/ecosystem.config.cjs" <<EOF
