@@ -141,6 +141,19 @@ run_sql "GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;"
 run_sql "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;"
 run_sql "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;"
 
+# Grant SELECT on all materialized views (GRANT ON ALL TABLES does not cover them)
+log "Granting SELECT on materialized views..."
+run_sql "DO \$\$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN (SELECT matviewname FROM pg_matviews WHERE schemaname = 'public')
+  LOOP
+    EXECUTE 'GRANT SELECT ON ' || quote_ident(r.matviewname) || ' TO anon, authenticated, service_role';
+  END LOOP;
+END;
+\$\$;"
+ok "Materialized view permissions granted."
+
 # ---------------------------------------------------------------------------
 # Always re-apply the latest search_verses function (idempotent).
 # This is a safety net for the idempotent migration path: even if the

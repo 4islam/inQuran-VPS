@@ -119,7 +119,12 @@ fi
 # Build without tests for faster, safer deployments on staging/prod
 echo "Running build..."
 export PUBLIC_GA_KEY="$GA_KEY_VAL"
+# PUBLIC_SUPABASE_URL is used by the browser-side Supabase client (correct: public domain)
 export PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+# SUPABASE_SSR_URL is used by server-side (SSR) Supabase fetches.
+# Always point to the local Kong gateway directly to avoid Cloudflare caching
+# SSR API calls (which caused topics to show 0 results when CF cached an empty response).
+export SUPABASE_SSR_URL="http://127.0.0.1:8000"
 if [ -n "$ANON_KEY" ]; then
     export PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY"
 fi
