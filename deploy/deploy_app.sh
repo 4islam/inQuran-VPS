@@ -255,9 +255,17 @@ NGINXEOF
     sudo nginx -t && sudo systemctl reload nginx && echo "Nginx configured and reloaded for $DOMAIN"
 fi
 
-echo "Pruning old releases (keeping 5)..."
+echo "Pruning old releases (keeping 3)..."
 cd "$RELEASES_DIR"
-# List by modification time (newest first), skip the first 5, and delete the rest
-ls -1t | tail -n +6 | xargs -d '\n' rm -rf -- 2>/dev/null || true
+# List by modification time (newest first), skip the first 3, and delete the rest
+ls -1t | tail -n +4 | xargs -d '\n' rm -rf -- 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Run Cache Warmup
+# ---------------------------------------------------------------------------
+if [ -f "$SCRIPT_DIR/warmup.sh" ]; then
+    echo "Running cache warmup..."
+    bash "$SCRIPT_DIR/warmup.sh" "$DOMAIN"
+fi
 
 echo "✅ Zero-Downtime Deployment complete! Current release: $TIMESTAMP"
