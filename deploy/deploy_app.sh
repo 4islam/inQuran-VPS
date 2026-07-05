@@ -118,6 +118,10 @@ fi
 
 # Build without tests for faster, safer deployments on staging/prod
 echo "Running build..."
+echo "Writing version tracking file..."
+mkdir -p public
+echo "{\"version\": \"$TIMESTAMP\", \"domain\": \"${DOMAIN:-unknown}\"}" > public/version.json
+
 export PUBLIC_GA_KEY="$GA_KEY_VAL"
 # PUBLIC_SUPABASE_URL is used by the browser-side Supabase client (correct: public domain)
 export PUBLIC_SUPABASE_URL="$SUPABASE_URL"
