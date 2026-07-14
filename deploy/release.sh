@@ -247,6 +247,9 @@ else
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://$PROD_DOMAIN/" || echo "000")
     if [ "$HTTP_CODE" = "200" ]; then
         ok "https://$PROD_DOMAIN/ returned HTTP 200. Production is LIVE! 🎉"
+        
+        # Reset PROMPT_SUGGESTIONS.md upon successful deployment
+        echo "Review production logs and add your suggestions for the next release here." > "$DEPLOY_DIR/../PROMPT_SUGGESTIONS.md"
     else
         fail "https://$PROD_DOMAIN/ returned HTTP $HTTP_CODE. DNS may still be propagating — check manually."
     fi
