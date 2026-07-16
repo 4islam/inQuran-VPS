@@ -225,3 +225,7 @@ if [ "${WORD_COUNT:-0}" -lt 1000 ]; then
 fi
 
 ok "Seeding verified: $VERSE_COUNT verses | $WORD_COUNT words | $ROOT_COUNT roots"
+
+log "Reloading PostgREST schema cache..."
+run_sql "NOTIFY pgrst, 'reload schema';"
+ok "Schema cache reloaded."
