@@ -154,29 +154,6 @@ END;
 \$\$;"
 ok "Materialized view permissions granted."
 
-# ---------------------------------------------------------------------------
-# Always re-apply the latest search_verses function (idempotent).
-# This is a safety net for the idempotent migration path: even if the
-# migration was marked as applied in _migration_history, a DB restore or
-# reseed may have left an older function signature in place. The SQL uses
-# DROP FUNCTION IF EXISTS + CREATE OR REPLACE so it is always safe to run.
-# ---------------------------------------------------------------------------
-SEARCH_MIGRATION="$MIGRATIONS_DIR/20251210000000_enable_hybrid_search.sql"
-if [ -f "$SEARCH_MIGRATION" ]; then
-    log "Re-applying latest search_verses function (always idempotent)..."
-    run_sql_file "$SEARCH_MIGRATION" \
-        || fail "Failed to apply search_verses function."
-    ok "search_verses function is up to date."
-
-    # Verify the function actually exists in the schema cache
-    FUNC_EXISTS=$(run_sql_scalar "SELECT COUNT(*) FROM pg_proc WHERE proname='search_verses';")
-    if [ "${FUNC_EXISTS:-0}" -lt 1 ]; then
-        fail "search_verses function not found in pg_proc after applying migration!"
-    fi
-    ok "Verified: search_verses function exists in DB (count: $FUNC_EXISTS)."
-else
-    log "⚠️  Warning: $SEARCH_MIGRATION not found — skipping search_verses force-apply."
-fi
 
 # ---------------------------------------------------------------------------
 # Seed data (scripts use upserts — safe to re-run)
