@@ -229,3 +229,14 @@ ok "Seeding verified: $VERSE_COUNT verses | $WORD_COUNT words | $ROOT_COUNT root
 log "Reloading PostgREST schema cache..."
 run_sql "NOTIFY pgrst, 'reload schema';"
 ok "Schema cache reloaded."
+
+if [ "${GENERATE_EMBEDDINGS:-false}" = "true" ]; then
+    log "Generating embeddings (this may take a few minutes)..."
+    npx tsx scripts/generate_embeddings.ts
+    ok "Embeddings generated."
+fi
+
+log "Refreshing materialized views (for spelling autocorrect)..."
+run_sql "REFRESH MATERIALIZED VIEW CONCURRENTLY unique_english_words;" || run_sql "REFRESH MATERIALIZED VIEW unique_english_words;"
+ok "Materialized views refreshed."
+
