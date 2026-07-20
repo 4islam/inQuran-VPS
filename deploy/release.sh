@@ -22,11 +22,16 @@ set -euo pipefail
 TARGET="${1:-}"
 FULL_RESEED="false"
 SKIP_DNS="false"
+GENERATE_EMBEDDINGS="no-touch"
 for arg in "$@"; do
     if [ "$arg" = "--full-reseed" ]; then
         FULL_RESEED="true"
     elif [ "$arg" = "--no-dns" ]; then
         SKIP_DNS="true"
+    elif [ "$arg" = "--generate-embeddings" ]; then
+        GENERATE_EMBEDDINGS="true"
+    elif [ "$arg" = "--skip-embeddings" ]; then
+        GENERATE_EMBEDDINGS="false"
     fi
 done
 
@@ -37,6 +42,9 @@ if [ -z "$TARGET" ] || { [ "$TARGET" != "staging" ] && [ "$TARGET" != "productio
     echo "  production  — Full pipeline: staging first, then production, then Cloudflare"
     echo ""
     echo "  --full-reseed  — Wipe DB and reseed all data (use for schema resets)"
+    echo "  --generate-embeddings  — Generate AI embeddings on remote DB (slow, takes a few mins)"
+    echo "  --skip-embeddings      — Skip embedding generation"
+    echo "                           (Default is 'no-touch', leaving embeddings alone)"
     echo "  --no-dns       — Skip Cloudflare DNS switch (useful for testing production VPS)"
     exit 1
 fi
@@ -111,8 +119,8 @@ seed_db() {
     local HOST="$1"
     local ENV_LABEL="$2"
     local ENV_UPPER; ENV_UPPER=$(echo "$ENV_LABEL" | tr '[:lower:]' '[:upper:]')
-    section "[$ENV_UPPER] Seeding Database (FULL_RESEED=$FULL_RESEED)"
-    ssh "$SSH_USER@$HOST" "FULL_RESEED=$FULL_RESEED bash ~/deploy/seed_db.sh"
+    section "[$ENV_UPPER] Seeding Database (FULL_RESEED=$FULL_RESEED, GENERATE_EMBEDDINGS=$GENERATE_EMBEDDINGS)"
+    ssh "$SSH_USER@$HOST" "FULL_RESEED=$FULL_RESEED GENERATE_EMBEDDINGS=$GENERATE_EMBEDDINGS bash ~/deploy/seed_db.sh"
     ok "DB seeded on $HOST."
 }
 

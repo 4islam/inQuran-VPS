@@ -230,10 +230,14 @@ log "Reloading PostgREST schema cache..."
 run_sql "NOTIFY pgrst, 'reload schema';"
 ok "Schema cache reloaded."
 
-if [ "${GENERATE_EMBEDDINGS:-false}" = "true" ]; then
+if [ "${GENERATE_EMBEDDINGS:-no-touch}" = "true" ]; then
     log "Generating embeddings (this may take a few minutes)..."
     npx tsx scripts/generate_embeddings.ts
     ok "Embeddings generated."
+elif [ "${GENERATE_EMBEDDINGS:-no-touch}" = "false" ]; then
+    log "Skipping embeddings generation."
+else
+    log "Embeddings left untouched."
 fi
 
 log "Refreshing materialized views (for spelling autocorrect)..."

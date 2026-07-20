@@ -43,6 +43,18 @@ chmod 600 ~/.inquran-secrets
 ./deploy/release.sh production --full-reseed
 ```
 
+### 5. Control AI Embeddings Generation
+
+Generating embeddings on the remote DB is resource-intensive and slow. By default, embeddings are left untouched (`no-touch` mode). You can force them to generate or skip:
+
+```bash
+# Force embedding generation (takes a few minutes)
+./deploy/release.sh staging --generate-embeddings
+
+# Explicitly skip embedding generation
+./deploy/release.sh staging --skip-embeddings
+```
+
 ## Scripts
 
 | Script | Runs On | Purpose |
