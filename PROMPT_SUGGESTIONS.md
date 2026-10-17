@@ -1,6 +1,18 @@
 Review production logs and add your suggestions for the next release here.
 
-## Agent Log Review Recommendations (October 16, 2026 - Iteration 7)
+## Agent Log Review & Deployment Verification (October 17, 2026 - Iteration 8)
+
+- **Status: Healthy 🟢 (Deployment Complete)**
+- **Fixes Deployed:**
+  - **Statement Timeout (`57014`) Eliminated:** Added GIN trigram indexes on `verses USING gin ((translations ->> 'ArabicNoor') gin_trgm_ops)` and `verses USING gin (text_uthmani gin_trgm_ops)`. Multi-ILIKE translation and text searches accelerated from sequential scan (215ms) to index scan (0.07ms, ~3,000x speedup).
+  - **Upstream Gateway 502/504 Timeout Eliminated:** Replaced unpaginated whole-table query on `/topic/[...slug]` with paginated RPC `get_verses_by_topic_pattern(p_topic_pattern, p_limit, p_offset)` with `statement_timeout = 45000`. Excluded vector `embedding` (1024-dim) column from verse listing projections across all topic, stem, lemma, word, juz, and ruku routes. Reduced network/memory payload by >80%.
+- **Deployment Status:**
+  - **Commit:** `001025d` deployed to both Staging (`159.69.12.202`) and Production (`142.132.160.191`).
+  - **Smoke Tests:** 6/6 passed on staging, 6/6 passed on production. PM2 process `inquran-astro` online.
+  - **Live Verification:** Tested live production endpoints: `/topic/allah` (0.43s), `/topic/muhammad` (0.07s), `/` (0.17s) — zero new errors logged in PM2 error log.
+- **Notes for Next Release:**
+  - Cloudflare API Token has client IP address restrictions configured (error 9109 from external networks). Since Cloudflare DNS is already permanently routed to production (`142.132.160.191`), deploy scripts can be run with `--no-dns` or your current IP can be added to the token's allowed client IP list in Cloudflare.
+
 
 - **Status: Healthy 🟢**
 - **Findings:**
