@@ -1,6 +1,18 @@
 Review production logs and add your suggestions for the next release here.
 
-## Agent Log Review & Deployment Verification (October 17, 2026 - Iteration 8)
+## Agent Log Review & Deployment Verification (October 17, 2026 - Iteration 9)
+
+- **Status: Healthy 🟢 (Deployment Complete)**
+- **Fixes Deployed:**
+  - **Root Page Script Isolation & Query Cleanup:** Updated [`src/pages/root/[slug].astro`](file:///Users/nislam/Documents/Projects/inQuran-Astro/src/pages/root/%5Bslug%5D.astro) to filter stems and words strictly by `rootData.script`, preventing cross-script pollution where Uthmani searches were burdened with Noor words and vice versa. Removed an unused unassigned query on `dictionary_lemmas`.
+  - **Redundant Pattern Reduction:** Added irreducible pattern filtering so words with suffixes/prefixes that already contain a shorter word in the set are excluded from the `OR` search array. Reduced pattern count by >77% (e.g. 298 down to 68 for root `علم`).
+  - **Materialized RPC Optimization:** Created migration [`20261017060000_optimize_get_verses_by_words.sql`](file:///Users/nislam/Documents/Projects/inQuran-Astro/supabase/migrations/20261017060000_optimize_get_verses_by_words.sql) with `WITH matched AS MATERIALIZED (...)`, evaluating `ILIKE ANY(...)` once rather than twice for count and row fetching.
+  - **Latency Impact:** Query time for root `اتي` (largest root in the Quran) dropped from >15s down to 2.7s (~5x-10x speedup). Live `/root/علم` loads in 0.15s.
+- **Deployment Status:**
+  - **Commit:** `5e166a2` deployed to both Staging (`159.69.12.202`) and Production (`142.132.160.191`).
+  - **Smoke Tests:** 6/6 passed on staging, 6/6 passed on production. PM2 process `inquran-astro` online.
+  - **Live Verification:** Tested live production endpoints: `/root/s-l-m` (0.22s), `/root/علم` (0.15s), `/root/k-t-b` (0.15s), `/topic/allah` (0.99s), `/` (0.27s). Zero new errors in PM2 logs.
+
 
 - **Status: Healthy 🟢 (Deployment Complete)**
 - **Fixes Deployed:**
