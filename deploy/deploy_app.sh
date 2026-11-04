@@ -160,9 +160,14 @@ module.exports = {
         name: '$APP_NAME',
         script: './dist/server/entry.mjs',
         cwd: '$APP_DIR',
+        instances: 2,
+        exec_mode: 'cluster',
+        max_memory_restart: '1800M',
+        node_args: '--max-old-space-size=2048',
         env: {
             PORT: 4321,
-            HOST: '127.0.0.1'
+            HOST: '127.0.0.1',
+            NODE_ENV: 'production'
         }
     }]
 };
@@ -190,7 +195,7 @@ cd "$APP_DIR"
 
 if pm2 describe $APP_NAME > /dev/null 2>&1; then
     echo "App is already running. Performing zero-downtime reload..."
-    pm2 reload ecosystem.config.cjs --update-env
+    pm2 reload ecosystem.config.cjs --update-env || pm2 restart ecosystem.config.cjs --update-env
 else
     echo "Starting app for the first time..."
     pm2 start ecosystem.config.cjs --update-env
