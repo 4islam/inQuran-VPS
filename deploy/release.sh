@@ -22,12 +22,15 @@ set -euo pipefail
 TARGET="${1:-}"
 FULL_RESEED="false"
 SKIP_DNS="false"
+SKIP_SEED="false"
 GENERATE_EMBEDDINGS="no-touch"
 for arg in "$@"; do
     if [ "$arg" = "--full-reseed" ]; then
         FULL_RESEED="true"
     elif [ "$arg" = "--no-dns" ]; then
         SKIP_DNS="true"
+    elif [ "$arg" = "--skip-seed" ]; then
+        SKIP_SEED="true"
     elif [ "$arg" = "--generate-embeddings" ]; then
         GENERATE_EMBEDDINGS="true"
     elif [ "$arg" = "--skip-embeddings" ]; then
@@ -120,6 +123,10 @@ seed_db() {
     local ENV_LABEL="$2"
     local ENV_UPPER; ENV_UPPER=$(echo "$ENV_LABEL" | tr '[:lower:]' '[:upper:]')
     section "[$ENV_UPPER] Seeding Database (FULL_RESEED=$FULL_RESEED, GENERATE_EMBEDDINGS=$GENERATE_EMBEDDINGS)"
+    if [ "$SKIP_SEED" = "true" ]; then
+        log "Skipping database seed (--skip-seed specified)."
+        return 0
+    fi
     ssh "$SSH_USER@$HOST" "FULL_RESEED=$FULL_RESEED GENERATE_EMBEDDINGS=$GENERATE_EMBEDDINGS bash ~/deploy/seed_db.sh"
     ok "DB seeded on $HOST."
 }
