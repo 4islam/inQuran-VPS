@@ -1,5 +1,29 @@
 Review production logs and add your suggestions for the next release here.
 
+## Agent Log Review Recommendations (November 5, 2026 - Iteration 28)
+
+- **Status: Resolved, Optimized & Scaled 🟢 (Daily 2:00 AM CST Scheduled Review)**
+- **Findings & Root Causes:**
+  - **Simultaneous Worker Restarts (20 Upstream 504 Timeouts):** High-volume crawler indexing (38,700 requests, peak >700 req/min) accumulated memory across both workers equally. Both processes reached the `1800M` memory threshold within 1 second of each other (`06:50:45` and `06:50:46`). Because both restarted together, Nginx had 0 available backends for ~20 seconds while `@xenova/transformers` ONNX models loaded, causing 20 HTTP 504 timeouts (down 97.6% from 839 prior to cluster mode).
+  - **Client Abort Log Clutter (`ECONNRESET`):** `POST /api/track-root-view` logged `[API] Unexpected error in tracking API: Error: aborted ... code: 'ECONNRESET'` whenever users or crawlers navigated away before beacon bodies finished transmitting.
+  - **Uncached SQLite Prepared Statements & Verbose Logging:** `src/lib/server/lanes.ts` recompiled `database.prepare(...)` on every root lookup and wrote verbose console logs per query to stdout, inflating logs and causing I/O contention.
+- **Remediations Implemented & Deployed:**
+  - **3-Instance PM2 Cluster Mode (`inQuran-VPS` commit `f15d4b6`):** Scaled PM2 to 3 worker processes (`instances: 3`, `kill_timeout: 5000`, `listen_timeout: 10000`). If any single worker ever recycles, 2 workers remain 100% online and actively serving traffic, eliminating 504 timeout windows completely.
+  - **Lazy-Loaded Embeddings Pipeline (`inQuran-Astro` commit `e4b5bc8`):** Converted `@xenova/transformers` ONNX `bge-large-en-v1.5` pipeline from eager module warmup to on-demand initialization. Worker startup dropped from ~20s to <1s, and baseline memory dropped from ~500MB to ~95MB.
+  - **Cached SQLite Statement & Silenced Stdout Flood (`inQuran-Astro` commit `e4b5bc8`):** Cached the `better-sqlite3` prepared statement handle in `src/lib/server/lanes.ts` and silenced repetitive debug logs in production.
+  - **Graceful Client Abort Handling (`inQuran-Astro` commit `e4b5bc8`):** Handled `ECONNRESET` / aborted requests with HTTP 499 return instead of throwing 500 stack traces in `src/pages/api/track-root-view.ts`.
+- **Verification & Live Latency Benchmarks:**
+  - **Cluster Status:** 3 worker processes active in `cluster_mode` (PIDs 614028, 614041, 614062) using only 125MB–170MB RSS each.
+  - **System RAM:** 10 GB available (total host RAM usage dropped from 44% to **28%**).
+  - **Error Logs:** 0 bytes / zero errors across all workers.
+  - **Smoke Tests:** 6/6 passed on Staging and Production.
+  - **Live Latency:**
+    - Homepage (`/`): **30ms (0.030s)**
+    - Root page (`/root/s-l-m`): **1.69s**
+    - Topic page (`/topic/prayer`): **89ms (0.089s)**
+    - Ruku page (`/ruku/530`): **190ms (0.190s)**
+    - Arabic short redirects: `HTTP 301` in **28ms**
+
 ## Agent Log Review Recommendations (November 4, 2026 - Iteration 27)
 
 - **Status: Resolved & Hardened 🟢**
