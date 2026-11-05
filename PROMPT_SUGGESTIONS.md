@@ -1,5 +1,27 @@
 Review production logs and add your suggestions for the next release here.
 
+## Agent Log Review Recommendations (November 4, 2026 - Iteration 27)
+
+- **Status: Resolved & Hardened 🟢**
+- **Findings & Root Causes:**
+  - **Arabic Short Redirect Crash (ByteString TypeError):** Production logs revealed `TypeError: Cannot convert argument to a ByteString because the character at index 7 has a value of 1605 which is greater than 255. at redirect (...)` occurring when crawlers hit Arabic short URLs (`/l/[lemma]`, `/w/[word]`, `/st/[stem]`, `/r/[root]`, `/t/[...slug]`). Node's `undici` webidl converter strictly rejects non-ASCII code points in HTTP `Location` headers.
+  - **Memory Growth & Crawler Spike Timeouts:** Over weeks of operation, the single-instance fork worker accumulated 4.18GB RSS (87.8% heap usage) due to SSR caching and Transformers model residency, culminating in V8 GC thrashing and 839 Nginx 504 upstream timeouts during a 761 req/min crawler spike.
+- **Remediations Implemented & Deployed:**
+  - **Unicode URL Encoding (`inQuran-Astro` commit `6fd39f0`):** Encoded all redirect targets using `encodeURIComponent` / `encodeURI` across `src/pages/l/[lemma].ts`, `src/pages/w/[word].ts`, `src/pages/st/[stem].ts`, `src/pages/r/[root].ts`, and `src/pages/t/[...slug].ts`. Tested and verified that `/l/مُسْلِمَة` cleanly responds with `HTTP 301` -> `/lemma/%D9%85%D9%8F%D8%B3%D9%92%D9%84%D9%90%D9%85%D9%8E%D8%A9` with zero runtime exceptions.
+  - **Multi-Instance Cluster & Auto-Memory Recycling (`inQuran-VPS` commit `f31ad02`):** Updated `deploy/deploy_app.sh` ecosystem configuration with `instances: 2`, `exec_mode: 'cluster'`, `max_memory_restart: '1800M'`, and `--max-old-space-size=2048`. Both Staging and Production now run 2 load-balanced worker processes, enabling multi-core request distribution and automatic rolling restarts before memory limits are ever breached.
+  - **Fast Code Deployment (`inQuran-VPS` commit `032d466`):** Added `--skip-seed` flag to `deploy/release.sh` to bypass redundant multi-minute dictionary reseeding on standard code deployments.
+- **Verification & Live Latency Benchmarks:**
+  - **PM2 Error Logs:** Both `inquran-astro-error-0.log` and `inquran-astro-error-1.log` are at 0 bytes (zero errors).
+  - **Smoke Tests:** 6/6 passed on Staging (`159.69.12.202`) and 6/6 passed on Production (`142.132.160.191`).
+  - **Supabase Containers:** All 11 containers healthy (`Up 4 months`).
+  - **Live Response Times:**
+    - Homepage (`/`): **35ms (0.035s)**
+    - Topic (`/topic/prayer`): **80ms (0.080s)**
+    - Ruku (`/ruku/530`): **151ms (0.151s)**
+    - Root (`/root/s-l-m`): **1.78s**
+- **Scheduled Automation:**
+  - Daily server log inspection and automated self-healing scheduled as a persistent background daemon for 2:00 AM every morning (`0 2 * * *`).
+
 ## Agent Log Review Recommendations (October 21, 2026 - Iteration 26)
 
 - **Status: Healthy 🟢 (100h Continuous Zero-Error Uptime Milestone)**
