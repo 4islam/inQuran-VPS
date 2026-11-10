@@ -84,6 +84,11 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$http_x_forwarded_proto;
 
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+        proxy_next_upstream error timeout http_502 http_504;
+        proxy_next_upstream_tries 3;
+
         # Enable caching for DB (1 Week for static Quran data)
         proxy_cache my_cache;
         proxy_cache_valid 200 7d;
@@ -102,6 +107,11 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$http_x_forwarded_proto;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+        proxy_next_upstream error timeout http_502 http_504;
+        proxy_next_upstream_tries 3;
 
         # Enable caching
         proxy_cache my_cache;
