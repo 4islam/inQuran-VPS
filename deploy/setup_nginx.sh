@@ -61,15 +61,15 @@ server {
     add_header Referrer-Policy "no-referrer-when-downgrade" always;
     add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
 
-    # Static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        proxy_pass http://127.0.0.1:$APP_PORT;
-        proxy_cache my_cache;
-        proxy_cache_valid 200 302 60m;
-        proxy_cache_valid 404 1m;
+    # Direct static file serving from client build
+    root /home/$USER_NAME/inquran-app/dist/client;
+
+    # Static assets: served directly from disk with fallback to Node
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webmanifest|json|txt)$ {
+        try_files \$uri @node;
         expires 1y;
         access_log off;
-        add_header Cache-Control "public";
+        add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
     # Proxy for Supabase
@@ -98,6 +98,10 @@ server {
     }
 
     location / {
+        try_files \$uri @node;
+    }
+
+    location @node {
         proxy_pass http://127.0.0.1:$APP_PORT;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;

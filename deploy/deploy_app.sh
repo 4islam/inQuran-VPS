@@ -191,6 +191,8 @@ fi
 
 # Create symlink securely
 ln -sfn "$RELEASE_DIR" "$APP_DIR"
+# Ensure Nginx (www-data) can traverse home directory to read dist/client
+chmod o+x "$HOME"
 
 # Change into the symlinked directory so PM2 runs with the correct path
 cd "$APP_DIR"
@@ -231,10 +233,12 @@ server {
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
 
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        proxy_pass http://127.0.0.1:4321;
+    root $APP_DIR/dist/client;
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webmanifest|json|txt)$ {
+        try_files \$uri @node;
         expires 1y; access_log off;
-        add_header Cache-Control "public";
+        add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
     location ^~ /supabase/ {
@@ -245,9 +249,18 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$http_x_forwarded_proto;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+        proxy_next_upstream error timeout http_502 http_504;
+        proxy_next_upstream_tries 3;
     }
 
     location / {
+        try_files \$uri @node;
+    }
+
+    location @node {
         proxy_pass http://127.0.0.1:4321;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -257,6 +270,11 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$http_x_forwarded_proto;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+        proxy_next_upstream error timeout http_502 http_504;
+        proxy_next_upstream_tries 3;
     }
 
     if (\$http_x_forwarded_proto = "http") {

@@ -1,5 +1,42 @@
 Review production logs and add your suggestions for the next release here.
 
+## Agent Log Review Recommendations (November 14, 2026 - Iteration 36)
+
+- **Status: Hardened & Direct Static Serving Deployed 🟢 (Direct Edge Static Assets, Recursive URL Decoding, Multi-Metric Memory Guard)**
+- **Findings & Root Causes:**
+  - **Zero PM2 Error Growth (144+ Hours Flawless):**
+    - PM2 error logs recorded **0 new error bytes** for 6 consecutive days (`error-0.log` Nov 12, `error-1.log` Nov 7, `error-2.log` at 0 bytes).
+    - Workers 0 and 1 sustained **25 hours continuous uptime** (`25h`).
+  - **Worker 2 Memory Limit Restart Analysis (06:35:58 UTC):**
+    - At 06:35:58 UTC, Worker 2 hit PM2's 2.2GB memory limit (`current_memory=2547982336`).
+    - Investigation revealed that `maintainMemoryHealth()` in `src/middleware.ts` previously checked only V8 heap usage (`mem.heapUsed > 800MB`). While V8 heap was only ~483MB, OS Resident Set Size (RSS) reached 2.5GB due to glibc malloc fragmentation and external buffers. Because `heapUsed` remained below 800MB, manual garbage collection was never invoked.
+    - During Worker 2's rolling restart, 7 client requests (including static `.js` bundles and crawler queries) encountered upstream timeouts because static assets were being proxied through Node.js instead of served directly from disk.
+  - **Crawler Recursive URL Encoding Vulnerability:**
+    - High-frequency crawlers (YandexBot, AhrefsBot) hit quadruple-encoded URIs (`/lemma/%25252525d8...`).
+    - Single-pass `decodeURIComponent` left raw `%` characters, which when passed into PostgreSQL `ILIKE '%term%'` acted as SQL wildcards, inducing full table scans.
+- **Remediations Implemented & Deployed:**
+  - **Direct Edge Static File Serving (`setup_nginx.sh` & `deploy_app.sh`):**
+    - Updated Nginx configurations on Production (`inquran.com.conf`) and Staging (`uat.inquran.com.conf`) with `root /home/nislam/inquran-app/dist/client;` and `try_files $uri @node;`.
+    - Static JavaScript bundles, CSS, fonts, and images are now served directly from the Linux filesystem cache in <0.1ms, eliminating Node event-loop queuing.
+  - **Recursive Multi-Layer URL Decoding (`src/lib/text.ts`):**
+    - Enhanced `tryDecodeURIComponent` to decode up to 5 iterative passes, safely resolving deeply nested percent-encoding (e.g. `%25252525d8...` -> `عُتُوّ`).
+  - **SQL Wildcard Sanitization (`src/lib/text.ts`):**
+    - Added `escapeSqlWildcards` to escape `%`, `_`, and `\` in `src/pages/lemma/[slug].astro` and `src/pages/stem/[slug].astro`, preventing wildcard table scans.
+  - **Proactive Multi-Metric Memory Guard (`src/middleware.ts`):**
+    - Updated `maintainMemoryHealth()` to evaluate every 50 requests or 60 seconds, triggering `globalThis.gc()` if `mem.rss > 1100MB` OR `mem.heapUsed > 500MB`.
+- **Infrastructure & Posture Telemetry:**
+  - **PM2 Cluster Stability:** 3 workers active, 10 GB available host RAM (RAM utilization 50.8%), CPU load 7.3%.
+  - **Database & Containers:** 11/11 Supabase Docker containers healthy (`Up 4 months`), 0 locks.
+  - **Smoke Test Verification:** 6/6 smoke tests passed on Staging and Production.
+  - **Live Latency Benchmarks:**
+    - Static Assets (`/favicon.svg`): **< 0.1ms direct Nginx disk cache**
+    - Homepage (`/`): **129ms (0.129s)**
+    - About Page (`/about`): **265ms (0.265s)**
+    - Chapters Index (`/chapters`): **271ms (0.271s)**
+    - Morphology Index (`/morphology`): **298ms (0.298s)**
+    - Root Dictionary (`/root/s-l-m`): **320ms (0.320s)**
+    - Surah View (`/chapter/1`): **340ms (0.340s)**
+
 ## Agent Log Review Recommendations (November 13, 2026 - Iteration 35)
 
 - **Status: Healthy & Sustained 🟢 (Zero 5xx Errors Today Across 33,800+ Requests, Morphology Acceleration Validated)**
