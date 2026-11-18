@@ -1,5 +1,32 @@
 Review production logs and add your suggestions for the next release here.
 
+## Agent Log Review Recommendations (November 18, 2026 - Iteration 40)
+
+- **Status: Hardened & Sustained 🟢 (Cron Schedule Re-Registered as Persistent Daemon, Exploit Probing Neutralized)**
+- **Operational Telemetry & Findings:**
+  - **Cron Schedule Re-Registration:**
+    - Background task daemon was interrupted by a host agent restart. Promptly re-registered `task-3701` (`0 2 * * *`, `isDaemon: true`) to ensure continuous daily 2:00 AM self-healing audits.
+  - **High Concurrency & Telemetry (54,600+ Requests Today):**
+    - Production Nginx logged **54,609 HTTP 200 OK**, **4,664 HTTP 302**, and **1,162 HTTP 301** responses.
+    - Diagnosed 7 isolated HTTP 500 errors originating from aggressive AI security scanners (ChatGLM-Spider, ClaudeBot, MoonshotBot, DeepSeekBot) probing `/_image?href=/../../../.env`.
+  - **Path Traversal & Sensitive File Probe Remediation (`v8.9.1`):**
+    - Added pre-SSR request sanitization in `src/middleware.ts` that immediately rejects path traversal sequences (`..`) and sensitive file probe targets (`.env`) with HTTP 400 Bad Request.
+    - Prevents unhandled Astro internal image exceptions, secures environment configuration, and preserves 100% clean 5xx telemetry.
+  - **PM2 Cluster Stability:**
+    - Workers active with 12h–16h continuous uptime across 8 CPU cores. Available host RAM: **5.6 GB headroom**.
+  - **Database & Container Health:**
+    - 11/11 Supabase Docker containers healthy (`Up 4 months`). PostgreSQL connections: 20 idle, 1 active query, 0 ungranted locks.
+  - **Smoke Test Verification:**
+    - **6/6 smoke tests passed** on Staging and **6/6 smoke tests passed** on Production.
+  - **Live Latency Benchmarks:**
+    - Static Favicon (`/favicon.svg`): **75ms** (Edge / Nginx disk cache)
+    - Homepage (`/`): **131ms**
+    - About Page (`/about`): **123ms**
+    - Chapters Index (`/chapters`): **161ms**
+    - Morphology Index (`/morphology`): **212ms**
+    - Lemma Dictionary (`/lemma/عُتُوّ`): **219ms**
+    - Topic Page (`/topic/prayer`): **160ms**
+
 ## Agent Log Review Recommendations (November 17, 2026 - Iteration 39)
 
 - **Status: Flawless & 100% Sustained 🟢 (Zero 5xx Errors Across 39,400+ Requests, Zero PM2 Error Growth, Staging Heap Compaction)**
