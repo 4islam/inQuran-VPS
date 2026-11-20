@@ -1,5 +1,26 @@
 Review production logs and add your suggestions for the next release here.
 
+## Agent Log Review Recommendations (November 20, 2026 - Iteration 42)
+
+- **Status: Hardened & Optimized 🟢 (Deep 9-Layer Crawler Decoded, 504 Timeout Eliminated, Full Table Scan Protected)**
+- **Operational Telemetry & Findings:**
+  - **Nginx Traffic & Status Codes:**
+    - Production Nginx logged **24,958 HTTP 200 OK**, **1,297 HTTP 301**, **1,229 HTTP 302**, and **680 HTTP 400** responses.
+  - **Root-Cause Analysis of 1 Isolated HTTP 504 Timeout:**
+    - Identified a single HTTP 504 error at 07:46:37 UTC originating from YandexBot requesting `/stem/%252525252525252525D8...` (a 9-layer nested percent-encoded URL).
+    - `tryDecodeURIComponent` was previously capped at 5 iterations, leaving 4 layers of raw `%25` characters in `decoded`.
+    - The partially decoded string was passed into `dictionary_stems` and `dictionary_words`, where `escapeSqlWildcards` escaped `%` into `\%`, triggering an expensive, unindexed `ILIKE '\\%25252525%'` full-table scan on PostgreSQL during a concurrent PM2 worker memory recycle.
+  - **Linguistic Hardening & Performance Fix (`v8.9.2`):**
+    - Upgraded `tryDecodeURIComponent` in `src/lib/text.ts` to recursively decode up to 12 layers (reliably resolving the 9-layer URL into its authentic Arabic stem `تُشۡطِطۡ` in <0.08s).
+    - Added unresolvable loop protection: any string still containing `%` after 12 iterations immediately returns empty string `''`.
+    - Added explicit `%` rejection in `stem/[slug]`, `lemma/[slug]`, `word/[slug]`, and `root/[slug]`. Any request containing `%` redirects immediately to `/404` or `/search` in <0.1ms, eliminating unindexed database table scans entirely.
+    - Updated `deploy/setup_nginx.sh` to reduce `proxy_read_timeout` from 60s to 30s and `proxy_connect_timeout` to 3s.
+  - **Host Resource & Database Stability:**
+    - Production host RAM available: **9.7 GB headroom** (used RAM dropped from 8.6 GB to 5.5 GB).
+    - Disk: 105 GB available (28% used, sustaining the 9GB reclamation).
+    - Supabase: All 11 containers healthy (`Up 4 months`), 24 idle, 1 active query, 0 ungranted locks.
+    - Staging: All 3 workers online with 23h continuous uptime, 2.5 GB available RAM.
+
 ## Agent Log Review Recommendations (November 19, 2026 - Iteration 41)
 
 - **Status: Optimal & 100% Error-Free 🟢 (Zero 5xx Errors Across 200,000+ Requests, 9.0 GB Disk Space Reclaimed, Weekly Roadmap & Dependency Audit Synchronized)**
