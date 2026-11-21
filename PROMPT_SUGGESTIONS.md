@@ -1,5 +1,26 @@
 Review production logs and add your suggestions for the next release here.
 
+## Agent Log Review Recommendations (November 21, 2026 - Iteration 43)
+
+- **Status: Protected & Fortified 🟢 (2,400-Request Headless Scraper Flood Neutralized, Cloudflare Real IP & Connection Limiting Deployed)**
+- **Operational Telemetry & Findings:**
+  - **High Concurrency & Log Breakdown (90,000+ Total Requests):**
+    - Production Nginx logged **80,525 HTTP 200 OK**, **6,777 HTTP 302**, **3,680 HTTP 301**, and **1,052 HTTP 400** responses.
+  - **Root-Cause Analysis of 06:49 UTC Wave:**
+    - Detected a spike of 2,409 HTTP 499 (client aborted) and 48 HTTP 504 errors within a 33-second window (06:49:53–06:50:26 UTC).
+    - Isolated the root cause to `Lightpanda/1.0`, an unauthenticated headless browser scraper that opened 2,400+ concurrent connections in 30 seconds across morphology, verses, and roots, saturating the Node cluster listen backlog before abruptly closing connections.
+  - **Dual-Layer Mitigation Deployed (`v8.9.3`):**
+    - **Application Layer (`src/middleware.ts`):** Added pre-SSR User-Agent rate protection that immediately intercepts unauthenticated burst crawlers (`Lightpanda`) and throttles them with `HTTP 429 Too Many Requests` (`Retry-After: 3600`) in <0.1ms.
+    - **Infrastructure Layer (`deploy/setup_nginx.sh` & `/etc/nginx/conf.d/security.conf`):**
+      - Configured Cloudflare `real_ip` restoration (`set_real_ip_from` Cloudflare subnets + `real_ip_header CF-Connecting-IP`), ensuring authentic client IPs are tracked.
+      - Added edge scraper rejection via `map $http_user_agent $is_abusive_scraper` returning `HTTP 429` at the Nginx edge without consuming Node worker capacity.
+      - Applied connection and rate limit zones (`limit_conn addr_conn 30; limit_req zone=addr_req burst=50 nodelay;`) to prevent single-client connection flooding.
+      - Verified via curl: normal user traffic returns **HTTP 200**, while `Lightpanda/1.0` is immediately returned **HTTP 429**.
+  - **Cluster & Resource Health:**
+    - Production: PM2 cluster running all 3 workers online with 11h–12h continuous uptime, **5.9 GB available host RAM**, **105 GB free disk (28% used)**.
+    - Staging: All 3 workers online with 23h continuous uptime, **3.4 GB available host RAM**.
+    - Supabase: All 11 containers healthy (`Up 4 months`), 21 idle connections, 1 active query, 0 ungranted locks.
+
 ## Agent Log Review Recommendations (November 20, 2026 - Iteration 42)
 
 - **Status: Hardened & Optimized 🟢 (Deep 9-Layer Crawler Decoded, 504 Timeout Eliminated, Full Table Scan Protected)**

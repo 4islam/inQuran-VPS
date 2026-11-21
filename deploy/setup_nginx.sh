@@ -17,6 +17,43 @@ fi
 echo "Creating new Nginx configuration..."
 
 echo 'proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m max_size=1g inactive=7d use_temp_path=off;' | sudo tee /etc/nginx/conf.d/cache.conf > /dev/null
+
+sudo tee /etc/nginx/conf.d/security.conf > /dev/null << 'SEC_EOF'
+# Real IP configuration for Cloudflare
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+set_real_ip_from 103.22.200.0/22;
+set_real_ip_from 103.31.4.0/22;
+set_real_ip_from 141.101.64.0/18;
+set_real_ip_from 108.162.192.0/18;
+set_real_ip_from 190.93.240.0/20;
+set_real_ip_from 188.114.96.0/20;
+set_real_ip_from 197.234.240.0/22;
+set_real_ip_from 198.41.128.0/17;
+set_real_ip_from 162.158.0.0/15;
+set_real_ip_from 104.16.0.0/13;
+set_real_ip_from 104.24.0.0/14;
+set_real_ip_from 172.64.0.0/13;
+set_real_ip_from 131.0.72.0/22;
+set_real_ip_from 2400:cb00::/32;
+set_real_ip_from 2606:4700::/32;
+set_real_ip_from 2803:f800::/32;
+set_real_ip_from 2405:b500::/32;
+set_real_ip_from 2405:8100::/32;
+set_real_ip_from 2a06:98c0::/29;
+set_real_ip_from 2c0f:f248::/32;
+real_ip_header CF-Connecting-IP;
+
+# Map to identify abusive headless scrapers
+map \$http_user_agent \$is_abusive_scraper {
+    default 0;
+    ~*Lightpanda 1;
+}
+
+# Rate and connection limit zones per authentic client IP
+limit_conn_zone \$binary_remote_addr zone=addr_conn:10m;
+limit_req_zone \$binary_remote_addr zone=addr_req:10m rate=30r/s;
+SEC_EOF
 CACHE_DEF=""
 
 SSL_CONFIG=""
@@ -39,6 +76,11 @@ server {
     listen 80 default_server;
     listen [::]:80 default_server;
     server_name $DOMAIN www.$DOMAIN;
+
+    # Abusive scraper mitigation
+    if (\$is_abusive_scraper) {
+        return 429;
+    }
 
     # Gzip Compression
     gzip on;
@@ -102,6 +144,9 @@ server {
     }
 
     location @node {
+        limit_conn addr_conn 30;
+        limit_req zone=addr_req burst=50 nodelay;
+
         proxy_pass http://127.0.0.1:$APP_PORT;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
