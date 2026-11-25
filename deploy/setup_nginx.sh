@@ -53,6 +53,8 @@ map \$http_user_agent \$is_abusive_scraper {
 # Rate and connection limit zones per authentic client IP
 limit_conn_zone \$binary_remote_addr zone=addr_conn:10m;
 limit_req_zone \$binary_remote_addr zone=addr_req:10m rate=30r/s;
+limit_req_status 429;
+limit_conn_status 429;
 SEC_EOF
 CACHE_DEF=""
 

@@ -17,6 +17,8 @@ Review production logs and add your suggestions for the next release here.
   - **Zero-Downtime Nginx Remediation:**
     - Restored the complete hardened Nginx configuration on Production (`/etc/nginx/conf.d/inquran.com.conf` and refreshed `.bak`), re-enabling direct edge static serving (`Cache-Control: public, max-age=31536000, immutable`), `limit_conn`/`limit_req`, and `3s`/`30s` upstream timeouts with `proxy_next_upstream`.
     - Aligned Staging (`/etc/nginx/conf.d/uat.inquran.com.conf`) to `3s`/`30s` timeouts. Both validated with `nginx -t` and reloaded cleanly with zero downtime.
+    - Verified immediately in live traffic: at `18:08 UTC` an automated vulnerability scanner (`34.77.244.113` probing `/config.yml`, `/local_settings.py`, `/.flaskenv`) was cleanly blocked at the Production edge (1,052 blocked probes). Updated `security.conf` and `deploy/setup_nginx.sh` with `limit_req_status 429; limit_conn_status 429;` so rate-limited scanners return semantically accurate `HTTP 429` instead of Nginx's default `HTTP 503` (keeping 5xx telemetry 100% pure).
+    - Re-registered the daily 2:00 AM standing cron daemon (`task-4213`) following host agent restart.
   - **Cluster, Host & Database Health:**
     - Production: 3 PM2 workers online, **0 new bytes** in PM2 error logs since Nov 22, **6.9 GB available RAM**, **104 GB free disk (28% used)**, load average `0.53`.
     - Staging: 3 PM2 workers online (12h uptime at ~300 MB each), **0 bytes** in PM2 and Nginx error logs, **3.8 GB available RAM**.
