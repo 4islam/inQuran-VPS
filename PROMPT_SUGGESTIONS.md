@@ -1,5 +1,27 @@
 Review production logs and add your suggestions for the next release here.
 
+## Agent Log Review Recommendations (November 25, 2026 - Iteration 45)
+
+- **Status: Restored & Aligned 🟢 (Production Nginx Config Drift Caught & Fixed — Edge Static Serving, Rate/Conn Limits & 30s Timeouts Restored)**
+- **Operational Telemetry & Findings:**
+  - **Nginx Traffic & Status Breakdown:**
+    - Production Nginx logged **37,809 HTTP 200 OK**, **1,300 HTTP 302**, **576 HTTP 301**, **290 HTTP 429** (`Lightpanda/1.0` cleanly blocked), **56 HTTP 400**, **1 HTTP 499**, and **0 HTTP 500/502/503**.
+    - Cloudflare Real-IP restoration verified active in logs (authentic crawler IPs such as Bingbot `157.55.39.193` now recorded).
+  - **Root-Cause Analysis of 1 Isolated HTTP 504 (Config Drift Caught!):**
+    - Detected 1 isolated HTTP 504 at `06:58:13 UTC` for Bingbot (`GET /word/%25D8...`), occurring exactly **60 seconds** after Worker 1 recycled for `--max-memory-restart` at `06:57:13 UTC`.
+    - Inspecting `/etc/nginx/conf.d/inquran.com.conf` revealed that the Nov 21 `.bak` restore had reverted Production Nginx to the Nov 10 baseline—silently dropping:
+      1. Direct filesystem static asset serving (`root /home/nislam/inquran-app/dist/client; try_files $uri @node;`), causing all static `.js`/`.css`/`.svg` traffic to proxy through Node workers and accelerating memory growth.
+      2. Connection and rate limiters (`limit_conn addr_conn 30; limit_req zone=addr_req burst=50 nodelay;`).
+      3. Tightened upstream timeouts (`proxy_connect_timeout 3s; proxy_read_timeout 30s; proxy_next_upstream ...`).
+    - Also identified that Staging's active `uat.inquran.com.conf` still had `5s`/`60s` upstream timeouts.
+  - **Zero-Downtime Nginx Remediation:**
+    - Restored the complete hardened Nginx configuration on Production (`/etc/nginx/conf.d/inquran.com.conf` and refreshed `.bak`), re-enabling direct edge static serving (`Cache-Control: public, max-age=31536000, immutable`), `limit_conn`/`limit_req`, and `3s`/`30s` upstream timeouts with `proxy_next_upstream`.
+    - Aligned Staging (`/etc/nginx/conf.d/uat.inquran.com.conf`) to `3s`/`30s` timeouts. Both validated with `nginx -t` and reloaded cleanly with zero downtime.
+  - **Cluster, Host & Database Health:**
+    - Production: 3 PM2 workers online, **0 new bytes** in PM2 error logs since Nov 22, **6.9 GB available RAM**, **104 GB free disk (28% used)**, load average `0.53`.
+    - Staging: 3 PM2 workers online (12h uptime at ~300 MB each), **0 bytes** in PM2 and Nginx error logs, **3.8 GB available RAM**.
+    - Supabase PostgreSQL: All 11/11 Docker containers healthy (`Up 4 months`), 20 idle connections, 1 active query, **0 ungranted locks**.
+
 ## Agent Log Review Recommendations (November 24, 2026 - Iteration 44)
 
 - **Status: Flawless & 100% Error-Free 🟢 (Zero 5xx Errors Across 318,000+ Requests Over 48h, 13,266 Scraper Floods Deflected at Edge, Cron Daemon Re-Registered, Safe Dependency Updates Deployed)**
