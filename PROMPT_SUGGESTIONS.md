@@ -1,5 +1,31 @@
 Review production logs and add your suggestions for the next release here.
 
+## Agent Log Review Recommendations (November 26, 2026 - Iteration 46 — Weekly Strategic Run)
+
+- **Status: Optimal & 100% Error-Free 🟢 (Zero 5xx Today, Worker Uptime Restored to 20–25h After Edge Static Fix, Nginx Rate-Limit Status Upgraded to RFC 6585 HTTP 429, Weekly Tafsir Research & Dependency Audit Completed)**
+- **Operational Telemetry & Findings:**
+  - **Nginx Traffic & Impact of Edge Static Serving Restoration:**
+    - Current `access.log`: **30,117 HTTP 200 OK**, **1,298 HTTP 302**, **557 HTTP 429**, **500 HTTP 301**, **102 HTTP 400**, **62 HTTP 404**, **2 HTTP 499**, and **0 HTTP 5xx**!
+    - Immediately following yesterday's restoration of direct edge disk serving (`root /home/nislam/inquran-app/dist/client`), PM2 worker continuous uptimes jumped back up to **20h, 25h, and 12h** (up from 3–4h), and static asset latency held steady at **76ms**.
+  - **Rate-Limiter Status Code Hygiene (`503` -> `429`):**
+    - Observed in `access.log.1` that automated vulnerability scanners hitting the VPS IP directly (`34.77.244.113`, `34.62.181.91` probing `/config.yml`, `/settings_local.py`, `/.flaskenv`) were cleanly throttled by Nginx `addr_req`, but Nginx's default rate-limit status (`503`) logged 1,052 HTTP 503 responses.
+    - Added `limit_req_status 429;` and `limit_conn_status 429;` to `/etc/nginx/conf.d/security.conf` on both Production and Staging as well as `deploy/setup_nginx.sh`, reloading both cleanly via `nginx -t && nginx -s reload`. Rate-limited vulnerability scanners now return semantic RFC 6585 **HTTP 429**, keeping 5xx metrics 100% pure for genuine backend faults.
+  - **Cluster, Host & Database Health:**
+    - Production: 3 PM2 workers online (`20h`, `25h`, `12h` uptime), **0 new bytes** in PM2 error logs since Nov 22, **6.5 GB available RAM**, **104 GB free disk (28% used)**, load average `0.88`.
+    - Staging: 3 PM2 workers online (**36h continuous uptime** at ~520 MB each), **0 bytes** in PM2 error logs, **3.0 GB available RAM**.
+    - Supabase PostgreSQL: All 11/11 Docker containers healthy (`Up 4 months`), 20 idle connections, 1 active query, **0 ungranted locks**.
+  - **Weekly Strategic Feature Research & Dependency Audit:**
+    - Conducted architectural research for **Milestone `v9.1` — Classical Tafsir Corpus (Ibn Kathir, Al-Tabari, Al-Jalalayn)** covering verse-group range normalization (`int4range` GiST indexing), lazy-loaded edge-cached exegesis drawer (`client:idle`), and automatic reference cross-linking. Updated `inQuran-Astro/ROADMAP.md` (Tafsir progress `15% -> 25%`; `v8.9.4` edge/bot resilience marked `100%`).
+    - Audited dependencies via `npm outdated`: post-`v8.9.4`, only major-version upgrades remain (`astro` 7, `tailwindcss` 4, `vitest` 5, `typescript` 7), deferred to a planned major migration sprint.
+  - **Live Production Latency Benchmarks:**
+    - Static Favicon (`/favicon.svg`): **76ms**
+    - Chapters Index (`/chapters`): **289ms**
+    - Homepage (`/`): **308ms**
+    - Topic Page (`/topic/prayer`): **334ms**
+    - Morphology Index (`/morphology`): **377ms**
+    - About Page (`/about`): **429ms**
+    - `Lightpanda/1.0` Scraper Probe: **HTTP 429 in 236ms**
+
 ## Agent Log Review Recommendations (November 25, 2026 - Iteration 45)
 
 - **Status: Restored & Aligned 🟢 (Production Nginx Config Drift Caught & Fixed — Edge Static Serving, Rate/Conn Limits & 30s Timeouts Restored)**
