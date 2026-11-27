@@ -1,5 +1,29 @@
 Review production logs and add your suggestions for the next release here.
 
+## Agent Log Review Recommendations (November 27, 2026 - Iteration 47)
+
+- **Status: Flawless & 100% Error-Free 🟢 (Zero 5xx Today Across 62,400+ Requests, Zero HTTP 503 Scanner Noise After 429 Upgrade, 44h Worker Longevity, 5 Days of Zero PM2 Errors)**
+- **Operational Telemetry & Findings:**
+  - **Nginx Traffic & Verification of `limit_req_status 429` Upgrade:**
+    - Current `access.log`: **59,428 HTTP 200 OK**, **1,198 HTTP 301**, **1,024 HTTP 302**, **554 HTTP 429** (`Lightpanda/1.0` cleanly deflected at the edge), **124 HTTP 400**, **75 HTTP 404**, **1 HTTP 499**, and **0 HTTP 5xx**!
+    - Production Nginx `error.log`: **0 bytes** (completely clean).
+    - Previous `access.log.1`: **80,111 HTTP 200**, **4,615 HTTP 302**, **2,917 HTTP 429**, **0 HTTP 503** (confirming yesterday's `limit_req_status 429;` upgrade completely eliminated 1,000+ false 503 entries from vulnerability scanners), with only 2 transient edge events (`1x 502`, `1x 504`) coinciding with Worker 1's graceful memory recycle at `10:15:15 UTC`.
+  - **PM2 Cluster & Worker Longevity:**
+    - Production: 3 cluster workers online with **19h (Worker 0, 1.2 GB), 29h (Worker 1, 1.5 GB), and 44h (Worker 2, 1.7 GB)** continuous uptime — validating the long-term memory stability of restored edge static serving.
+    - PM2 stderr logs remain untouched (**0 new error bytes for 5 consecutive days** since Nov 22).
+    - Host RAM available: **7.0 GB headroom**, Disk: **104 GB free (29% used)**, load average `0.74`.
+  - **Staging & Supabase PostgreSQL Health:**
+    - Staging (`159.69.12.202`): 3 PM2 workers online with **2 days continuous uptime** (`2D`, ~630 MB each), **0 bytes** in PM2 error logs, **2.7 GB available RAM**. Nginx `addr_req` cleanly rate-limited vulnerability scanner `34.156.242.77` probing `/.wp-env.json`, `/ws_ftp.ini`, `/wwwroot.bak` with HTTP 429.
+    - Supabase PostgreSQL: All 11/11 Docker containers healthy (`Up 4 months`), 20 idle connections, 1 active query, **0 ungranted locks**.
+  - **Live External Latency Benchmarks:**
+    - Static Favicon (`/favicon.svg`): **90ms**
+    - Chapters Index (`/chapters`): **304ms**
+    - About Page (`/about`): **307ms**
+    - Morphology Index (`/morphology`): **497ms**
+    - Topic Page (`/topic/prayer`): **508ms**
+    - Homepage (`/`): **511ms**
+    - `Lightpanda/1.0` Scraper Probe: **HTTP 429 in 255ms**
+
 ## Agent Log Review Recommendations (November 26, 2026 - Iteration 46 — Weekly Strategic Run)
 
 - **Status: Optimal & 100% Error-Free 🟢 (Zero 5xx Today, Worker Uptime Restored to 20–25h After Edge Static Fix, Nginx Rate-Limit Status Upgraded to RFC 6585 HTTP 429, Weekly Tafsir Research & Dependency Audit Completed)**
